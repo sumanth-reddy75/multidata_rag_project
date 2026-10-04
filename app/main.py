@@ -98,7 +98,17 @@ async def health_check():
             "query_routing": True,  # Always available (keyword-based)
         },
         "configuration": {
-            "openai_configured": settings.OPENAI_API_KEY is not None,
+            "ollama_configured": bool(
+                settings.OLLAMA_BASE_URL
+                and (
+                    settings.OLLAMA_API_KEY
+                    or settings.OLLAMA_BASE_URL.startswith("http://localhost")
+                )
+            ),
+            "ollama_base_url": settings.OLLAMA_BASE_URL,
+            "llm_model": settings.LLM_MODEL,
+            "embedding_model": settings.EMBEDDING_MODEL,
+            "embedding_dimensions": settings.EMBEDDING_DIMENSIONS,
             "pinecone_configured": settings.PINECONE_API_KEY is not None,
             "database_configured": settings.DATABASE_URL is not None,
             "opik_configured": settings.OPIK_API_KEY is not None if hasattr(settings, 'OPIK_API_KEY') else False,
@@ -209,7 +219,7 @@ async def upload_document(file: UploadFile = File(...)):
             status_code=503,
             detail=ErrorResponse.service_unavailable(
                 "Document RAG services",
-                "Please configure OPENAI_API_KEY and PINECONE_API_KEY in .env"
+                "Please configure Ollama and PINECONE_API_KEY in .env"
             )
         )
 
@@ -288,7 +298,7 @@ async def upload_document(file: UploadFile = File(...)):
                         "upload_timestamp": datetime.utcnow().isoformat() + "Z",
                         "file_size_bytes": file_path.stat().st_size,
                         "chunk_count": len(chunks),
-                        "embedding_model": "text-embedding-3-small",
+                        "embedding_model": settings.EMBEDDING_MODEL,
                         "chunk_size": settings.CHUNK_SIZE,
                         "chunk_overlap": settings.CHUNK_OVERLAP,
                         "file_extension": file_extension  # NEW: include file extension
@@ -433,7 +443,7 @@ async def query_documents(question: str, top_k: int = 3):
             status_code=503,
             detail=ErrorResponse.service_unavailable(
                 "RAG service",
-                "Please configure OPENAI_API_KEY and PINECONE_API_KEY in .env"
+                "Please configure Ollama and PINECONE_API_KEY in .env"
             )
         )
 
@@ -460,8 +470,8 @@ async def query_documents(question: str, top_k: int = 3):
                         "chunks_retrieved": result.get('chunks_used', 0),
                         "model": result.get('model', 'unknown')
                     },
-                    "model": "gpt-4-turbo-preview",
-                    "provider": "openai"
+                    "model": settings.LLM_MODEL,
+                    "provider": "ollama"
                 }
 
                 # Add usage data for cost tracking
@@ -1151,6 +1161,10 @@ def initialize_services():
     logger.info("=" * 60)
     logger.info("Starting Multi-Source RAG + Text-to-SQL API...")
     logger.info("=" * 60)
+    logger.info("✓ Local Ollama configuration loaded")
+    logger.info(f"  Ollama URL: {settings.OLLAMA_BASE_URL}")
+    logger.info(f"  LLM model: {settings.LLM_MODEL}")
+    logger.info(f"  Embedding model: {settings.EMBEDDING_MODEL}")
     logger.info("Phase 0: Foundation Setup - COMPLETE")
     logger.info("Phase 1: Document RAG MVP - COMPLETE")
     logger.info("Phase 2: Text-to-SQL Foundation - COMPLETE")
@@ -1198,7 +1212,11 @@ def initialize_services():
 
     # Initialize Document RAG services if API keys are available
     try:
-        if settings.OPENAI_API_KEY and settings.PINECONE_API_KEY:
+        if (
+            settings.OLLAMA_BASE_URL
+            and (settings.OLLAMA_API_KEY or settings.OLLAMA_BASE_URL.startswith("http://localhost"))
+            and settings.PINECONE_API_KEY
+        ):
             logger.info("Initializing Document RAG services...")
             embedding_service = EmbeddingService(query_cache_service=query_cache_service)  # Pass cache service
             vector_service = VectorService()
@@ -1206,7 +1224,7 @@ def initialize_services():
             rag_service = RAGService(query_cache_service=query_cache_service)  # Pass cache service
             logger.info("✓ Document RAG services initialized!")
         else:
-            logger.warning("OpenAI/Pinecone API keys not configured.")
+            logger.warning("Ollama URL or Pinecone API key not configured.")
             logger.warning("Document RAG features will be unavailable.")
     except Exception as e:
         logger.error(f"Failed to initialize RAG services: {e}", exc_info=True)
@@ -1214,7 +1232,11 @@ def initialize_services():
 
     # Initialize Text-to-SQL service if database is available
     try:
-        if settings.DATABASE_URL and settings.OPENAI_API_KEY:
+        if (
+            settings.DATABASE_URL
+            and settings.OLLAMA_BASE_URL
+            and (settings.OLLAMA_API_KEY or settings.OLLAMA_BASE_URL.startswith("http://localhost"))
+        ):
             logger.info("Initializing Text-to-SQL service...")
             sql_service = TextToSQLService(query_cache_service=query_cache_service)  # Pass cache service
             logger.info("Training Vanna on database schema and examples...")

@@ -4,8 +4,12 @@ Loads environment variables from .env file.
 """
 
 import os
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
 from typing import Optional
+
+# Load optional environment variables from .env file before creating settings.
+load_dotenv()
 
 
 class Settings(BaseSettings):
@@ -17,8 +21,12 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     ROOT_PATH: str = ""  # Set to "/prod" for API Gateway, empty for local development
 
-    # OpenAI Configuration
-    OPENAI_API_KEY: Optional[str] = None  # Required for embeddings and RAG
+    # Local Ollama configuration; local Ollama does not require an API key.
+    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    OLLAMA_API_KEY: Optional[str] = None
+    LLM_MODEL: str = "qwen2.5-coder:7b"
+    EMBEDDING_MODEL: str = "nomic-embed-text"
+    EMBEDDING_DIMENSIONS: int = 768
 
     # Pinecone Configuration
     PINECONE_API_KEY: Optional[str] = None  # Required for vector storage
@@ -33,7 +41,7 @@ class Settings(BaseSettings):
     OPIK_PROJECT_NAME: str = "Multi-Source-RAG"  # Add this line with your custom project name
 
     # Vanna 2.0 Configuration (Text-to-SQL)
-    VANNA_MODEL: str = "gpt-4o"  # OpenAI model for SQL generation
+    VANNA_MODEL: str = "qwen2.5-coder:7b"  # Ollama model for SQL generation
     VANNA_PINECONE_INDEX: str = "vanna-sql-training"  # Dedicated Pinecone index for SQL training
     VANNA_NAMESPACE: str = "sql-agent"  # Namespace within Pinecone index
 
@@ -95,3 +103,8 @@ class Settings(BaseSettings):
 
 # Global settings instance
 settings = Settings()
+
+# Vanna's native Ollama integration reads authentication from OLLAMA_API_KEY
+# when a cloud-compatible host is configured.
+if settings.OLLAMA_API_KEY:
+    os.environ.setdefault("OLLAMA_API_KEY", settings.OLLAMA_API_KEY)

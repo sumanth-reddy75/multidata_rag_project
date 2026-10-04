@@ -231,7 +231,7 @@ class S3StorageBackend(StorageBackend):
         Args:
             document_id: SHA-256 hash of document
             file_extension: File extension
-            embeddings: NumPy array of shape (num_chunks, 1536)
+            embeddings: NumPy array of shape (num_chunks, embedding dimension)
 
         Raises:
             Exception if upload fails
@@ -322,7 +322,7 @@ class S3StorageBackend(StorageBackend):
             file_extension: File extension
 
         Returns:
-            NumPy array of shape (num_chunks, 1536)
+            NumPy array of shape (num_chunks, embedding dimension)
 
         Raises:
             Exception if file not found or load fails

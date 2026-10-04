@@ -1,6 +1,6 @@
 """
 Embedding Service
-Handles generation of embeddings using OpenAI's API.
+Handles generation of embeddings using Ollama's OpenAI-compatible API.
 """
 
 from typing import List, Tuple, Optional, Dict
@@ -12,23 +12,23 @@ logger = logging.getLogger(__name__)
 
 
 class EmbeddingService:
-    """Service for generating text embeddings using OpenAI."""
+    """Service for generating text embeddings using Ollama."""
 
     def __init__(self, api_key: str | None = None, query_cache_service=None):
         """
         Initialize the embedding service.
 
         Args:
-            api_key: OpenAI API key (optional, uses settings if not provided)
+            api_key: Compatibility key retained for existing callers.
             query_cache_service: Optional QueryCacheService for embedding caching
         """
-        self.api_key = api_key or settings.OPENAI_API_KEY
-        if not self.api_key:
-            raise ValueError("OpenAI API key is required. Set OPENAI_API_KEY in .env file.")
-
-        self.client = AsyncOpenAI(api_key=self.api_key)
-        self.model = "text-embedding-3-small"  # 1536 dimensions
-        self.dimensions = 1536
+        self.api_key = api_key or settings.OLLAMA_API_KEY or "ollama"
+        self.client = AsyncOpenAI(
+            api_key=self.api_key,
+            base_url=f"{settings.OLLAMA_BASE_URL.rstrip('/')}/v1"
+        )
+        self.model = settings.EMBEDDING_MODEL
+        self.dimensions = settings.EMBEDDING_DIMENSIONS
         self.query_cache_service = query_cache_service  # Optional cache service
 
     async def generate_embeddings(self, texts: List[str]) -> Tuple[List[List[float]], Optional[Dict]]:
@@ -119,7 +119,10 @@ class EmbeddingService:
                     return embeddings, usage_info
 
                 except Exception as e:
-                    raise Exception(f"Failed to generate embeddings: {str(e)}")
+                    raise Exception(
+                        f"Failed to generate embeddings with Ollama model '{self.model}' "
+                        f"at {settings.OLLAMA_BASE_URL}: {str(e)}"
+                    ) from e
             else:
                 # All embeddings came from cache
                 logger.debug(f"Embedding cache: {cache_hits} hits, 0 misses (100% cache hit rate)")
@@ -148,7 +151,10 @@ class EmbeddingService:
             return embeddings, usage_info
 
         except Exception as e:
-            raise Exception(f"Failed to generate embeddings: {str(e)}")
+            raise Exception(
+                f"Failed to generate embeddings with Ollama model '{self.model}' "
+                f"at {settings.OLLAMA_BASE_URL}: {str(e)}"
+            ) from e
 
     async def generate_single_embedding(self, text: str) -> List[float]:
         """
@@ -168,6 +174,6 @@ class EmbeddingService:
         Get the dimension of embeddings produced by this service.
 
         Returns:
-            int: Embedding dimension (1536 for text-embedding-3-small)
+            int: Embedding dimension configured for the Ollama embedding model.
         """
         return self.dimensions

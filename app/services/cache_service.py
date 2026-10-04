@@ -141,7 +141,7 @@ class CacheService:
             doc_id: Document ID (SHA-256 hash)
             file_extension: File extension (REQUIRED for S3 folder organization)
             chunks: List of chunk dictionaries
-            embeddings: List of embedding vectors (N x 1536)
+            embeddings: List of embedding vectors (N x configured embedding dimension)
             metadata: Document metadata (filename, timestamp, etc.)
 
         Raises:

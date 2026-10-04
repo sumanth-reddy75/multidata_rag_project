@@ -1,6 +1,6 @@
 """
 SQL Service - Vanna 2.0 Agent Framework Implementation
-Handles Text-to-SQL conversion using Vanna.ai 2.0 with OpenAI and PostgreSQL.
+Handles Text-to-SQL conversion using Vanna.ai 2.0 with Ollama and PostgreSQL.
 """
 
 from typing import Dict, Any, List, Optional
@@ -13,7 +13,7 @@ logger = logging.getLogger("rag_app.sql_service")
 
 # Vanna 2.0 Agent Framework imports
 from vanna import Agent
-from vanna.integrations.openai import OpenAILlmService
+from vanna.integrations.ollama import OllamaLlmService
 from vanna.integrations.postgres import PostgresRunner
 from vanna.core.registry import ToolRegistry
 from vanna.tools import RunSqlTool
@@ -53,47 +53,22 @@ class VannaAgentWrapper:
         Initialize Vanna 2.0 Agent with all components.
 
         Args:
-            openai_api_key: OpenAI API key for GPT-4o
+            openai_api_key: Unused compatibility argument retained for callers.
             database_url: PostgreSQL connection string
             pinecone_api_key: Optional Pinecone API key for persistent memory
         """
-        # Initialize OpenAI LLM with GPT-4o
-        self.llm = OpenAILlmService(
-            api_key=openai_api_key,
-            model=settings.VANNA_MODEL  # "gpt-4o"
+        self.llm = OllamaLlmService(
+            model=settings.VANNA_MODEL,
+            host=settings.OLLAMA_BASE_URL
         )
 
-        # Monkey-patch LLM to inject determinism parameters
-        # This ensures consistent SQL generation across multiple runs
         logger.info(
-            f"Configuring SQL LLM with deterministic settings: "
+            f"Configuring Ollama SQL LLM: "
+            f"model={settings.VANNA_MODEL}, host={settings.OLLAMA_BASE_URL}, "
             f"temperature={settings.VANNA_TEMPERATURE}, "
             f"top_p={settings.VANNA_TOP_P}, "
             f"seed={settings.VANNA_SEED}"
         )
-
-        # Store original _build_payload method
-        original_build_payload = self.llm._build_payload
-
-        # Create wrapper that injects determinism parameters
-        def deterministic_build_payload(request):
-            """Wraps Vanna's _build_payload to add temperature, top_p, and seed."""
-            payload = original_build_payload(request)
-
-            # Inject determinism parameters
-            payload['temperature'] = settings.VANNA_TEMPERATURE
-            payload['top_p'] = settings.VANNA_TOP_P
-            payload['seed'] = settings.VANNA_SEED
-
-            # Override max_tokens if configured
-            if settings.VANNA_MAX_TOKENS:
-                payload['max_tokens'] = settings.VANNA_MAX_TOKENS
-
-            logger.debug(f"SQL LLM payload: {payload}")
-            return payload
-
-        # Replace the method with our wrapper
-        self.llm._build_payload = deterministic_build_payload
 
         # Initialize PostgreSQL Runner
         self.postgres_runner = PostgresRunner(
@@ -117,7 +92,7 @@ class VannaAgentWrapper:
                 api_key=pinecone_api_key,
                 index_name=settings.VANNA_PINECONE_INDEX,
                 environment="us-east-1",  # Match PINECONE_ENVIRONMENT
-                dimension=1536,  # OpenAI text-embedding-3-small dimension
+                dimension=settings.EMBEDDING_DIMENSIONS,
                 metric="cosine"
             )
         else:
@@ -300,22 +275,19 @@ class TextToSQLService:
 
         Args:
             database_url: PostgreSQL connection string
-            openai_api_key: OpenAI API key
+            openai_api_key: Compatibility key retained for existing callers.
             query_cache_service: Optional QueryCacheService for SQL caching
 
         Raises:
             ValueError: If required credentials are missing
         """
         self.database_url = database_url or settings.DATABASE_URL
-        self.openai_api_key = openai_api_key or settings.OPENAI_API_KEY
+        self.openai_api_key = openai_api_key or "ollama"
         self.query_cache_service = query_cache_service  # Optional cache service
 
         # Validation
         if not self.database_url:
             raise ValueError("DATABASE_URL is required for Text-to-SQL features")
-        if not self.openai_api_key:
-            raise ValueError("OPENAI_API_KEY is required for Text-to-SQL features")
-
         # Initialize Vanna 2.0 Agent wrapper
         pinecone_key = settings.PINECONE_API_KEY if PINECONE_AVAILABLE else None
         self.vanna = VannaAgentWrapper(

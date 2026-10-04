@@ -48,7 +48,7 @@ class VectorService:
                 logger.info(f"Creating Pinecone index: {self.index_name}")
                 self.pc.create_index(
                     name=self.index_name,
-                    dimension=1536,  # OpenAI text-embedding-3-small dimension
+                    dimension=settings.EMBEDDING_DIMENSIONS,
                     metric="cosine",
                     spec=ServerlessSpec(
                         cloud="aws",

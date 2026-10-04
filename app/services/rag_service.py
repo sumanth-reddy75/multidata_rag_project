@@ -14,28 +14,29 @@ logger = logging.getLogger(__name__)
 
 
 class RAGService:
-    """Service for Retrieval-Augmented Generation."""
+    """Service for Retrieval-Augmented Generation using Ollama."""
 
     def __init__(self, api_key: str | None = None, query_cache_service=None):
         """
         Initialize the RAG service.
 
         Args:
-            api_key: OpenAI API key (optional, uses settings if not provided)
+            api_key: Compatibility key retained for existing callers.
             query_cache_service: Optional QueryCacheService for response caching
         """
-        self.api_key = api_key or settings.OPENAI_API_KEY
-        if not self.api_key:
-            raise ValueError("OpenAI API key is required. Set OPENAI_API_KEY in .env file.")
+        self.api_key = api_key or settings.OLLAMA_API_KEY or "ollama"
 
         # Initialize services
         self.embedding_service = EmbeddingService(api_key=self.api_key, query_cache_service=query_cache_service)
         self.vector_service = VectorService()
-        self.llm_client = AsyncOpenAI(api_key=self.api_key)
+        self.llm_client = AsyncOpenAI(
+            api_key=self.api_key,
+            base_url=f"{settings.OLLAMA_BASE_URL.rstrip('/')}/v1"
+        )
         self.query_cache_service = query_cache_service  # Optional cache service
 
         # LLM configuration
-        self.model = "gpt-4-turbo-preview"
+        self.model = settings.LLM_MODEL
         self.temperature = 0.1
         self.max_tokens = 1000
 

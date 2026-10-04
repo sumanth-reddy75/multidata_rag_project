@@ -35,8 +35,8 @@ def sample_chunks():
 
 @pytest.fixture
 def sample_embeddings():
-    """Sample embeddings array (2 chunks x 1536 dimensions)."""
-    return np.random.rand(2, 1536).astype(np.float32)
+    """Sample embeddings array (2 chunks x 768 dimensions)."""
+    return np.random.rand(2, 768).astype(np.float32)
 
 
 @pytest.fixture

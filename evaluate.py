@@ -41,7 +41,11 @@ class RAGEvaluator:
     def _initialize_services(self):
         """Initialize RAG and SQL services if API keys are available."""
         try:
-            if settings.OPENAI_API_KEY and settings.PINECONE_API_KEY:
+            if (
+                settings.OLLAMA_BASE_URL
+                and (settings.OLLAMA_API_KEY or settings.OLLAMA_BASE_URL.startswith("http://localhost"))
+                and settings.PINECONE_API_KEY
+            ):
                 print("Initializing RAG services...")
                 self.embedding_service = EmbeddingService()
                 self.vector_service = VectorService()
@@ -49,13 +53,17 @@ class RAGEvaluator:
                 self.rag_service = RAGService()
                 print("✓ RAG services initialized")
             else:
-                print("WARNING: OpenAI/Pinecone API keys not configured.")
+                print("WARNING: Ollama URL or Pinecone API key not configured.")
                 print("Document RAG evaluation will be skipped.")
         except Exception as e:
             print(f"WARNING: Failed to initialize RAG services: {e}")
 
         try:
-            if settings.DATABASE_URL and settings.OPENAI_API_KEY:
+            if (
+                settings.DATABASE_URL
+                and settings.OLLAMA_BASE_URL
+                and (settings.OLLAMA_API_KEY or settings.OLLAMA_BASE_URL.startswith("http://localhost"))
+            ):
                 print("Initializing SQL service...")
                 self.sql_service = TextToSQLService()
                 self.sql_service.complete_training()

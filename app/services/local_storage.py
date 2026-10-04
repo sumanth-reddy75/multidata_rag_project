@@ -128,7 +128,7 @@ class LocalStorageBackend(StorageBackend):
         Args:
             document_id: SHA-256 hash of document
             file_extension: File extension (not used, kept for interface)
-            embeddings: NumPy array of shape (num_chunks, 1536)
+            embeddings: NumPy array of shape (num_chunks, embedding dimension)
         """
         doc_path = self._get_document_path(document_id)
         doc_path.mkdir(parents=True, exist_ok=True)
